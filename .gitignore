@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+.nix-driver-libs/
+result
+.direnv/
+data/
+output/
+*.png
+!notes/**/*.png
+LOCAL.md
+LOCAL.env

@@ -1,7 +1,7 @@
 """生成 B05 讲义用的大数定律收敛曲线。
 
-在开发机上跑（那里有 matplotlib）：
-    python3 tools/figs/b05_convergence.py
+在本机跑：
+    just run tools/figs/b05_convergence.py
 输出：notes/figs/b05-convergence.png
 
 真掷骰子，不是画出来的示意线。

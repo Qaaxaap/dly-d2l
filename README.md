@@ -49,9 +49,13 @@
 
 ## 环境
 
-解释器和科学计算包用系统那份，nix flake 只管工具链。常用命令：
+解释器和所有依赖都在仓库内的 `.venv`：Python 3.12、torch 2.14.0+cu126、torchvision、
+matplotlib、numpy、pandas、tqdm、requests。依赖清单在 `requirements.txt`，
+换机器时 `just setup` 重建。
 
-```bash
+常用命令：
+
+```powershell
 just env                            # 看各包版本与 CUDA 状态
 just run work/a0/hello_tensor.py    # 跑一个脚本
 just check b02                      # 跑某单元的验收断言

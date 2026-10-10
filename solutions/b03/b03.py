@@ -1,9 +1,9 @@
 """B03 参考答案。做完再看。
 
 跑一遍：
-    python3 solutions/b03/b03.py
+    just run solutions/b03/b03.py
 或者拿它验断言：
-    python3 tools/check_b03.py solutions/b03/b03.py
+    just check b03 solutions/b03/b03.py
 """
 
 import torch

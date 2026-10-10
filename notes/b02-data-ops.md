@@ -223,7 +223,7 @@ T[0, 0]        # tensor(99.)，numpy 侧的修改进了张量
 ```python
 torch.arange(3, device=0).numpy()
 # TypeError: can't convert cuda:0 device type tensor to numpy.
-# Use Tensor.cpu() to copy the tensor to host memory first.（开发机实测）
+# Use Tensor.cpu() to copy the tensor to host memory first.（本机实测）
 ```
 
 还有一个条件与"梯度"有关，B04 学完自动微分才会碰到，那时再回来看这一段。

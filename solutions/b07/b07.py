@@ -1,9 +1,9 @@
 """B07 参考答案。做完再看。
 
 跑一遍：
-    python3 solutions/b07/b07.py
+    just run solutions/b07/b07.py
 或者拿它验断言：
-    python3 tools/check_b07.py solutions/b07/b07.py
+    just check b07 solutions/b07/b07.py
 """
 
 import torch

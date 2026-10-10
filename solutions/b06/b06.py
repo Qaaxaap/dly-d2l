@@ -1,9 +1,9 @@
 """B06 参考答案。做完再看。
 
 跑一遍：
-    python3 solutions/b06/b06.py
+    just run solutions/b06/b06.py
 或者拿它验断言：
-    python3 tools/check_b06.py solutions/b06/b06.py
+    just check b06 solutions/b06/b06.py
 """
 
 import torch

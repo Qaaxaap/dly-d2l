@@ -1,4 +1,7 @@
-set shell := ["bash", "-uc"]
+set shell := ["powershell", "-NoProfile", "-Command"]
+
+# 本仓库在 Windows 上跑，解释器用仓库内的 .venv（依赖清单见 requirements.txt）。
+py := "./.venv/Scripts/python.exe"
 
 # 列出所有命令
 default:
@@ -6,26 +9,23 @@ default:
 
 # 打印解释器、关键包版本、CUDA 状态
 env:
-    python3 tools/env.py
+    {{py}} tools/env.py
 
 # 跑一个脚本：just run work/a0/hello_tensor.py
 run f:
-    python3 {{f}}
+    {{py}} {{f}}
 
 # 跑某单元的验收断言：just check b02
-check u:
-    python3 tools/check_{{u}}.py
+# 也可以指定别的实现文件（自测用）：just check b02 solutions/b02/b02.py
+check u *args:
+    {{py}} tools/check_{{u}}.py {{args}}
 
-# 需要额外包时用：建带系统包可见性的 .venv 并同步依赖
+# 重建 .venv 并装依赖（换机器或 .venv 坏掉时用）
 setup:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    [ -d .venv ] || uv venv --system-site-packages --python /usr/bin/python3
-    uv sync
+    @if (-not (Test-Path .venv)) { python -m venv .venv }
+    {{py}} -m pip install -r requirements.txt
 
 # 删掉 .venv 与 __pycache__
 clean:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    rm -rf .venv
-    find . -name __pycache__ -type d -prune -exec rm -rf {} +
+    @if (Test-Path .venv) { Remove-Item -Recurse -Force .venv }
+    @Get-ChildItem -Recurse -Directory -Filter __pycache__ | Remove-Item -Recurse -Force

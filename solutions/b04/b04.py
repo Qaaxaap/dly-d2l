@@ -1,9 +1,9 @@
 """B04 参考答案。做完再看。
 
 跑一遍：
-    python3 solutions/b04/b04.py
+    just run solutions/b04/b04.py
 或者拿它验断言：
-    python3 tools/check_b04.py solutions/b04/b04.py
+    just check b04 solutions/b04/b04.py
 """
 
 import torch

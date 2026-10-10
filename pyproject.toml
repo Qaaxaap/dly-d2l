@@ -2,13 +2,9 @@
 name = "d2l-work"
 version = "0.0.0"
 description = "动手学深度学习（torch 版）练习仓库"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 
-# 解释器和科学计算包用系统那份（Arch 的 python-pytorch-cuda 等），
-# 所以这里默认不声明任何依赖，跑脚本直接 python3 即可。
-# 需要系统没有的包时用 `uv add <包名>`，它会装进项目内的 .venv，
-# 和系统包共存（.venv 创建时带 --system-site-packages，见 Makefile）。
+# 依赖清单不写在这里，见 requirements.txt（CUDA 版 torch 走 PyTorch 官方索引）。
+# 解释器和所有依赖都在仓库内的 .venv：跑脚本用 `just run <文件>`，
+# 换机器用 `just setup` 重建，不要用系统里别的 python。
 dependencies = []
-
-[tool.uv]
-package = false

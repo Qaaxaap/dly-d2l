@@ -1,7 +1,7 @@
 """生成 B06 讲义用的训练循环示意图。
 
-在开发机上跑（那里有 matplotlib）：
-    python3 tools/figs/b06_training_loop.py
+在本机跑：
+    just run tools/figs/b06_training_loop.py
 输出：notes/figs/b06-training-loop.png
 
 图里只用英文与数学符号，避免字体缺失。

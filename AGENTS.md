@@ -24,7 +24,7 @@
 
 1. **先备课再开讲。** 开任何一章之前，先读完第一版（v1）对应章节和第二版（v2）对应章节的原文。
    没读完不许出题、不许写讲义。内容多时派 subagent 读，但讲义结论必须自己核过。
-2. **每道代码题都要有验收断言。** 放在 `tools/check_<单元>.py`，能直接 `python tools/check_xx.py` 跑。
+2. **每道代码题都要有验收断言。** 放在 `tools/check_<单元>.py`，能直接 `just check <单元>` 跑。
    没有断言的口头评价不算验收。
    **断言不要限死实现方式。** 同一个目标有多种合法写法时，断言要都收。发生过一次：
    B06 的 T4 要求"更新后梯度清零"，断言只认 `.grad` 是全零张量，等于强制用 `zero_()`，
@@ -44,20 +44,16 @@
 
 ## 仓库与运行环境
 
-权威副本在开发机上，AI 的写作区在本地。**地址、端口、路径、代理一律写在 `LOCAL.md`（不入库）**，
-需要连机器或跑命令时先读它。`tools/sync.sh` 从 `LOCAL.env` 读地址。
+**所有东西都在本机这个仓库目录里**：讲义、题目、学习者的代码、验收脚本、解释器、依赖。
+没有远端机器，也没有同步步骤。
 
-- 同步：`tools/sync.sh push`（写作区 → 开发机，不碰 `work/`）、
-  `tools/sync.sh pull`（开发机 → 写作区，拉 `work/` 与 `PROGRESS.md`）。
-- 跑 Python 直接调开发机的系统解释器，**不要**套 `nix develop`：
-
-```bash
-ssh <开发机> 'cd <仓库目录> && python3 work/b02/b02.py'
-```
-
-  解释器和包都是系统那份（Arch python3.14 + `python-pytorch-cuda` 2.14.0，CUDA 可用）。
-  用 nix 的 python 会遮蔽系统解释器，C 扩展对不上。nix 只提供 uv/just/git。
-- 只有装了 `.venv` 里的包才要 `uv run python ...`。
+- 解释器和依赖都在仓库内的 `.venv`：Python 3.12.10、torch 2.14.0+cu126、torchvision、
+  matplotlib、numpy、pandas、tqdm、requests。清单在 `requirements.txt`，重建用 `just setup`。
+  **跑任何 Python 都走 `.venv`**：`just run <脚本>`、`just check <单元>`，
+  或直接 `.\.venv\Scripts\python.exe <脚本>`。
+- `just` 与 `git` 是 winget 装的用户级程序。`justfile` 的 shell 是 Windows PowerShell 5.1
+  （本机没有 pwsh 7），写 recipe 时按 5.1 的语法来。
+- 本机是一张 RTX 4060（8G 显存）。做实验按这个上限设计，别按 12G 写。
 
 ## 教学事实
 
@@ -68,20 +64,20 @@ ssh <开发机> 'cd <仓库目录> && python3 work/b02/b02.py'
   但不要开成 Python 课。
 - **numpy 也只有皮毛。** 不要用"和 numpy 一样"来解释 torch，两边都不熟的人看不懂这句。
   凡是 `ndarray`、轴（axis）、广播、`keepdims`、视图与副本这些概念，第一次出现都当新知识讲。
-- 他不用 notebook，全部是 `.py` 文件，在 nvim 里写，`python xxx.py` 跑。
+- 他不用 notebook，全部是 `.py` 文件，在 nvim 里写，用 `just run <文件>` 跑。
 
 ## 讲解的边界
 
-学习者是 LFS 用户，写过 C++ 项目。**Linux 与 shell 层面不用解释**：
-命令行工具、git、PATH、权限、进程、SSH、nix 这些都当他熟，直接给结论。
-解释这些会浪费他的时间，也显得没读他的背景。
+学习者是 LFS 用户，写过 C++ 项目。**命令行、git、PATH、权限、进程这些层面不用解释**，
+直接给结论。解释这些会浪费他的时间，也显得没读他的背景。
+运行环境是 Windows + PowerShell：讲义与题目里的命令要写成 PowerShell 能直接跑的形态，
+不要出现 Linux 专有命令（`mkdir -p`、`rm -rf`、`python3`、`nix`、`source` 这些）。
 
 **要解释的是 Python 语言本身和整个 Python 生态**：语法、对象模型、内置类型的行为，
 以及 torch、matplotlib、pandas、numpy 这些库的 API。他基本没写过 Python，
 也没有任何一个 Python 库的使用经验。每一个 API 第一次出现都要交代它是什么、参数是什么。
 
-例外：与系统核心无关的专业工具可以带一句，例如 openssl 用法、VSCodium 扩展机制、
-CUDA 工具链、nix 里某些冷门特性。
+例外：与系统核心无关的专业工具可以带一句，例如 openssl 用法、编辑器扩展机制、CUDA 工具链。
 
 **出题、举例、提建议之前先对照学习进度。** 他能用的只有已经学过的单元里的概念。
 A1 阶段只有 A0 的张量基础和 A1 的 Python 语法，所以 `@`（矩阵乘法）、广播、`batch`、
@@ -337,14 +333,13 @@ MXNet 的对照只在一种情况下有价值：**同一个概念两边默认行
 2. 更新 `PROGRESS.md`（状态、掌握度、错题本、复习队列、节奏表）
 3. `git add` + `git commit`，提交信息格式 `log(<单元>): <结果> <一句话>`
 4. `git push origin main`。仓库公开在 <https://github.com/Qaaxaap/d2l-learning>。
-   推送要代理，凭据由开发机上 `gh` 的 credential helper 提供，具体命令见 `LOCAL.md`。
+   **推送由学习者决定，不要替他推，也不要索要凭据。** 他没要求就只到 commit 为止。
 
 ## 仓库会公开
 
 这个仓库是用户的学习记录，要推到 GitHub。因此：
 
-- **不写机器地址、端口、登录用户名、绝对路径、代理端口。** 这些归 `LOCAL.md` 与 `LOCAL.env`，
-  两者都在 `.gitignore` 里。公开文档里写"开发机"、"仓库目录"就够。
+- **不写绝对路径、登录用户名、机器地址、凭据。** 公开文档里写"仓库目录"就够。
 - 不写密码、token、私钥路径、其他凭据。
 - 提交前扫一遍 `git status`，别把 `data/`、模型权重、`.venv/` 带进去（`.gitignore` 已覆盖）。
 - 日志里不写与学习无关的私人对话。

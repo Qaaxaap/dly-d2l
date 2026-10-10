@@ -1,7 +1,7 @@
 """生成 B04 讲义用的计算图。
 
-在开发机上跑（那里有 matplotlib）：
-    python3 tools/figs/b04_computation_graph.py
+在本机跑：
+    just run tools/figs/b04_computation_graph.py
 输出：notes/figs/b04-computation-graph.png
 
 图里只用英文与数学符号，避免字体缺失。

@@ -1,6 +1,6 @@
 ---
 name: d2l-study-reminder
-description: 给 d2l 学习会话做节奏控制和防溜号。学习者开始时给他一个时间预算并起后台心跳 job，到点问进度，五分钟没回话就用扬声器加中文语音叫他。含 tools/remind.sh 的用法与各任务的时间预算。
+description: 给 d2l 学习会话做节奏控制和防溜号。学习者开始时给他一个时间预算并起后台心跳 job，到点问进度，没回话就用扬声器加中文语音叫他。含 tools/remind.ps1 的用法与各任务的时间预算。
 whenToUse: 学习者说"我开始了/开始做某个单元"，或者需要在一段时长之后回来检查他的进度时。
 ---
 
@@ -20,12 +20,12 @@ whenToUse: 学习者说"我开始了/开始做某个单元"，或者需要在一
 
 给他任务的同时起一个后台 job：
 
-```bash
-sleep 1800; echo "心跳：该问 <单元> <任务> 的进度了"
+```powershell
+Start-Sleep -Seconds 1800; Write-Output "心跳：该问 <单元> <任务> 的进度了"
 ```
 
 `run_in_background` 设为 true。**job 跑完会通知 AI，这就是定时器**，
-不需要 `at`、systemd timer 或任何外部调度。
+不需要 Windows 计划任务或任何外部调度。
 
 起 job 之前先记下当前时刻，它同时充当本次任务的计时起点；他报告完成时再记一次，
 差值写进日志的"用时对比"节。
@@ -53,22 +53,22 @@ sleep 1800; echo "心跳：该问 <单元> <任务> 的进度了"
 
 同时起一个五分钟的后台 job：
 
-```bash
-sleep 300; echo "心跳：五分钟没回话，该响铃了"
+```powershell
+Start-Sleep -Seconds 300; Write-Output "心跳：五分钟没回话，该响铃了"
 ```
 
 ### 3. 没回话就响铃
 
 五分钟的 job 到点时他还没回话，用扬声器叫他：
 
-```bash
-bash tools/remind.sh 3 "回来学习"
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/remind.ps1 -Times 3 -Message "回来学习"
 ```
 
-- 第一个参数是响几声，溜号时用 3
-- 第二个参数是语音内容，走 piper 合成中文
-- 音量默认提示音 69%、语音 92%（可用 `D2L_VOL_SOUND` / `D2L_VOL_VOICE` 覆盖）。
-  学习者的系统音量常驻 50%，给低了压不过别的声音
+- `-Times` 是响几声，溜号时用 3
+- `-Message` 用系统语音念一遍中文（.NET 的 System.Speech），留空就只响铃
+- 脚本本身不需要装任何东西，也没有可调音量：声音大小由系统音量决定，
+  他平时音量不高时提醒容易听不见，必要时让他把系统音量调上去
 
 他回话之后，如果任务还没结束，从第 1 步重新起心跳。
 
@@ -83,22 +83,26 @@ bash tools/remind.sh 3 "回来学习"
 
 ## 脚本
 
-`tools/remind.sh` 只在本地跑，开发机没有音频设备。
+`tools/remind.ps1` 用 Windows 自带能力出声，不需要额外装包。
 
-```bash
-tools/remind.sh                 # 一声提示音
-tools/remind.sh 3               # 三声
-tools/remind.sh 2 "该看进度了"    # 两声，再用中文念一遍
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/remind.ps1 -Times 1                              # 一声提示音
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/remind.ps1 -Times 3                              # 三声
+powershell -NoProfile -ExecutionPolicy Bypass -File tools/remind.ps1 -Times 2 -Message "该看进度了"           # 两声，再念一遍
 ```
 
-语音用 piper，走仓库的 `tts` devShell，模型在 `~/.local/share/piper/`。
-piper 不进 home-manager，因为它默认带训练依赖，近 800 MiB，而这里只用它念一句话。
+`-ExecutionPolicy Bypass` 不能省：这台机器的脚本执行策略禁止直接跑 `.ps1`（报
+running scripts is disabled）。加这个参数只对这一次调用生效，不动系统设置。
+
+提示音走 `[console]::Beep`，失败时退回系统提示音；两者都失败（远程会话、没有声卡）
+只是静默跳过并打一行说明，不会报错退出。系统没装中文语音包时同样只跳过朗读。
+
+`tools/remind.ps1` 是 **UTF-8 with BOM** 的。PowerShell 5.1 读没有 BOM 的 `.ps1` 时按
+ANSI 解码，中文注释会被解坏成语法错误（报 `Unexpected token`）——改这个文件时别把 BOM
+弄丢。`justfile` 里用的是内联命令（`-Command`），不受这条影响。
 
 ## 注意
 
-- 学习者的作息与工作时段见 `LOCAL.md`（不入库）。排任务和定检查点前先看它，
-  不要按常规作息想当然，也别提"早上"。
 - 提醒别太频繁。一个任务一个心跳就够，不要在半小时里问三次。
-- 桌面通知在 AI 的沙盒 bash 里会失败（没有 `DBUS_SESSION_BUS_ADDRESS`），
-  需要通知时用 tmux 工具跑。扬声器（paplay）在沙盒里正常。
 - 扬声器是兜底。他人在电脑前时，在对话里喊一声就够，不必响铃。
+- 需要知道他今天的作息时直接问，不要按常规作息想当然，也别提"早上"。

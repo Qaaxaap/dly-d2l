@@ -1,7 +1,7 @@
 """生成 B03 讲义用的降维求和示意图。
 
-在开发机上跑（那里有 matplotlib）：
-    python3 tools/figs/b03_reduction.py
+在本机跑：
+    just run tools/figs/b03_reduction.py
 输出：notes/figs/b03-reduction.png
 
 图里只用英文与数学符号，避免字体缺失。

@@ -1,7 +1,7 @@
 """生成 B07 讲义用的 softmax 示意图。
 
-在开发机上跑（那里有 matplotlib）：
-    python3 tools/figs/b07_softmax.py
+在本机跑：
+    just run tools/figs/b07_softmax.py
 输出：notes/figs/b07-softmax.png
 
 图里只用英文与数学符号，避免字体缺失。数值是真算出来的。

@@ -9,14 +9,13 @@
 
 ## 1. 代码在哪
 
-所有代码在开发机上，登录后进入仓库目录即可：
+所有代码都在本机这个仓库目录里。开一个终端，进到仓库所在的文件夹：
 
-```bash
+```powershell
 cd <仓库目录>
 ```
 
-机器规格：Linux，i9-14900K（32 线程），62G 内存，RTX 4070 SUPER（12G 显存）。
-连接方式和路径你自己清楚，仓库里不写。
+机器规格：Windows，RTX 4060（8G 显存）。
 
 仓库目录分工：
 
@@ -27,45 +26,50 @@ cd <仓库目录>
 | `exercises/` | AI 出的题 |
 | `tools/` | 验收脚本、同步脚本 |
 
-`work/` 现在还不存在：
+`work/` 现在还不存在，先建出来：
 
-```bash
-mkdir -p work/a0
+```powershell
+New-Item -ItemType Directory -Force work\a0
 ```
 
 ## 2. 环境分层
 
-Python 环境分三层，搞清每层管什么，后面的报错才好定位：
+Python 环境分两层，搞清每层管什么，后面的报错才好定位：
 
 | 层 | 谁提供 | 内容 |
 |---|---|---|
-| 解释器 | 系统包管理器 | `/usr/bin/python3`，版本 3.14 |
-| 科学计算包 | 系统包管理器 | `python-pytorch-cuda`（torch 2.14.0）、`python-numpy`、`python-matplotlib`、`python-pandas`、`python-tqdm`、`python-requests` |
-| 工具链 | nix flake | `uv`、`just`、`git` |
+| 解释器 | Python 官方安装包（用户级安装，不需要管理员） | Python 3.12.10 |
+| 依赖 | 仓库内的 `.venv` | torch 2.14.0+cu126、torchvision、matplotlib、numpy、pandas、tqdm、requests |
+
+`.venv` 是这个仓库专用的依赖目录，装什么都只影响这个仓库，不碰系统里的 Python。
+清单写在 `requirements.txt`，换机器或 `.venv` 坏掉时一条命令重建：
+
+```powershell
+just setup
+```
 
 先看一眼实际状态：
 
-```bash
+```powershell
 just env
 ```
 
 `just` 是任务执行器，`just env` 会跑 `tools/env.py` 那个脚本。
 别的命令用 `just --list` 看。
 
-应该看到 torch 2.14.0、CUDA 可用、RTX 4070 SUPER。
+应该看到 python 3.12.10、torch 2.14.0+cu126、CUDA 可用、RTX 4060。
 
-**为什么不用 conda**：conda 会往 shell 启动脚本里塞钩子，每次开终端都要跑一遍初始化。
-这里解释器和包由系统包管理器管，nix 只补工具链，在任何目录 `python3 xxx.py` 都能跑。
+**为什么不用 conda**：conda 会往 shell 启动脚本里塞钩子，每次开终端都要跑一遍初始化，
+还自带一整套包管理，和系统的 Python 各管一套、边界不清。这里分成清楚的两层——
+Python 由官方安装包装一次，依赖全部关在 `.venv` 里，哪层出问题一眼能看出来。
 
-**需要额外包时**（比如第二版官方的 `d2l` 包）才用到 uv：
+**需要额外包时**（比如第二版官方的 `d2l` 包）：
 
-```bash
-just setup          # 第一次：建 .venv，带 --system-site-packages，能看到系统包
-uv add d2l          # 装进 .venv，同时写进 pyproject.toml
-uv run python work/a0/hello_tensor.py    # 用 .venv 跑
+```powershell
+.\.venv\Scripts\python.exe -m pip install d2l
 ```
 
-注意 `python3 xxx.py` 看不到 `.venv` 里的包，`uv run python xxx.py` 才看得到。
+装完把包名随手加进 `requirements.txt`，免得换机器时漏掉。
 
 ## 3. Python 的四个约定
 
@@ -256,7 +260,7 @@ torch.sin(x)
 ### 4.8 为什么画图前要设 `Agg` 后端
 
 **后端**指的是 matplotlib 用什么把图画出来。默认后端会去开一个窗口显示。
-这台机器没有显示器，开窗口会报错或卡住。
+我们只要存文件，用 `Agg` 就不必每次弹窗，脚本放到没有图形界面的环境里也照样能跑。
 
 `Agg` 后端只往内存里的位图渲染，不显示，由 `savefig` 写进文件。
 
@@ -366,14 +370,18 @@ print("已保存 work/a0/sin.png")
 
 ### 跑起来
 
-```bash
+```powershell
 just run work/a0/hello_tensor.py
 just run work/a0/sin.py
 ```
 
-`just run` 只是 `python3 <路径>` 的简写。
+`just run` 就是拿 `.venv` 里的解释器跑这个文件，等价于手敲：
 
-图存好之后，在 VSCodium 的远程文件树里点开 `work/a0/sin.png` 就能看。
+```powershell
+.\.venv\Scripts\python.exe work\a0\hello_tensor.py
+```
+
+图存好之后，在编辑器的文件树里点开 `work/a0/sin.png` 就能看。
 
 ## 7. 想深入的时候看这些
 
@@ -396,9 +404,9 @@ just run work/a0/sin.py
 
 ## 9. git
 
-开发机上的仓库是权威副本，也是要公开的学习记录。每完成一个小任务提交一次，别攒着：
+本机这个仓库就是权威副本，也是要公开的学习记录。每完成一个小任务提交一次，别攒着：
 
-```bash
+```powershell
 git status
 git add work/a0/hello_tensor.py
 git commit -m "a0: 跑通第一个张量脚本"
@@ -414,9 +422,9 @@ git commit -m "a0: 跑通第一个张量脚本"
 | 跑脚本 | `just run work/a0/hello_tensor.py` |
 | 看有哪些命令 | `just --list` |
 | 跑某单元验收 | `just check b02` |
-| 进 nix 工具环境 | `nix develop`（可选） |
-| 装额外的包 | `just setup` 然后 `uv add <包>` |
-| 让 AI 看到你的改动 | 跟 AI 说一声，它自己拉 |
+| 拿参考答案验验收脚本 | `just check b02 solutions/b02/b02.py` |
+| 重建依赖环境 | `just setup` |
+| 直接敲解释器 | `.\.venv\Scripts\python.exe work\a0\hello_tensor.py` |
 | 看讲义 | `notes/a0-setup.md` |
 
 ## 自测
@@ -446,6 +454,6 @@ git commit -m "a0: 跑通第一个张量脚本"
 6. pyplot 在导入时就把后端定下来并创建相关对象，之后再调 `use()` 不生效。
 7. matplotlib 只认 numpy 数组，torch 张量要先 `.numpy()` 转过去。
 8. `arange` 按**步长**生成（默认步长 1），`linspace` 按**点的个数**在两端之间均匀取。
-9. `python3 work/a0/sin.py`。
+9. 用 `.venv` 里的解释器跑这个文件：`.\.venv\Scripts\python.exe work\a0\sin.py`。
 
 </details>

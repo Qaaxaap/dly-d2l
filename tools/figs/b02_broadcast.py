@@ -1,7 +1,7 @@
 """生成 B02 讲义用的广播示意图。
 
-在开发机上跑（那里有 matplotlib）：
-    python3 tools/figs/b02_broadcast.py
+在本机跑：
+    just run tools/figs/b02_broadcast.py
 输出：notes/figs/b02-broadcast.png
 
 图里只用英文与数学符号，避免字体缺失。

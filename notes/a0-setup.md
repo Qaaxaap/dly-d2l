@@ -189,6 +189,18 @@ x.reshape(3, 4)
 把一个 12 个元素的一维张量排成 3 行 4 列。元素总数必须对得上，否则报错。
 也可以写 `x.reshape((3, 4))`，两种写法等价。
 
+**`reshape` 返回一个新张量，原来那个不变。** 所以单独写一行 `x.reshape(3, 4)` 等于白做——
+算出来的新张量没被谁接住，直接丢掉了，`x` 还是原来的一维。要用它就得接住：
+
+```python
+x = x.reshape(3, 4)      # 接回来，x 现在是 3 行 4 列
+y = x.reshape(3, 4)      # 或者另起一个名字
+print(x.reshape(3, 4))   # 或者当场用掉
+```
+
+这一条对下面几个方法同样成立：`reshape`、`.to()`、`.cpu()`、`.numpy()`、`.clone()`
+都是**返回新对象**，不接返回值就等于没调用。A0 里踩的坑有一半来自这里。
+
 ### 4.5 看形状和元素个数
 
 ```python
@@ -213,8 +225,11 @@ g = x.to("cuda")
 搬回内存：
 
 ```python
-g.cpu()
+h = g.cpu()
 ```
+
+`.cpu()` **和 `.to()` 一样返回新张量**，显卡上那份 `g` 不变。所以 `g.cpu()` 单独写一行
+同样是白做——要打印就得接住，或者当场用掉：`print((g * 2).cpu())`。
 
 **为什么必须搬回来**：显卡上的张量 Python 打印不了，`print` 会报错。
 要看内容就得先 `.cpu()`。
@@ -228,17 +243,28 @@ plt.figure(figsize=(5, 3))    # 新建画布，figsize 单位是英寸
 plt.plot(x, y)                # 画折线，两个参数是横坐标和纵坐标
 plt.xlabel("x")               # 横轴标签
 plt.ylabel("sin(x)")          # 纵轴标签
-plt.savefig("out.png", dpi=120)   # 存成 PNG，dpi 是每英寸像素数
+plt.savefig("文件名.png", dpi=120)   # 存成 PNG，dpi 是每英寸像素数
 ```
 
-**matplotlib 只认 numpy 数组，不认 torch 张量。** 传进去之前要转换：
+`savefig` 的路径是**相对于你敲命令时所在的目录**（也就是仓库根目录），不是相对于这个
+`.py` 文件。所以任务里要写全：`plt.savefig("work/a0/sin.png")`，只写 `"sin.png"`
+会存到仓库根目录，写成 `"out.png"` 就落到一个谁也不会去看的地方。
+
+**matplotlib 能直接画 CPU 上的 torch 张量，但画不了显卡上的。** 本机实测（matplotlib 3.11）：
+
+| 传什么 | 结果 |
+|---|---|
+| CPU 张量，如 `torch.linspace(0, 3, 10)` | 可以，matplotlib 内部会自己转成 numpy |
+| 显卡张量 `x.cuda()` | 报错 `can't convert cuda:0 device type tensor to numpy. Use Tensor.cpu() to copy the tensor to host memory first.` |
+
+所以规则不是"必须先转 numpy"，而是**传进去的东西必须在 CPU 上**。显卡上的要先 `.cpu()`：
 
 ```python
-x.numpy()
+x.numpy()        # 返回 numpy 数组（要求张量在 CPU 上）
 ```
 
-`.numpy()` 是张量的方法，返回对应的 numpy 数组。要求张量在 CPU 上、且不连着计算图，
-这两个条件在 A0 里都满足。
+`.numpy()` 是张量的方法，返回对应的 numpy 数组；它**也是返回新对象**，不接返回值等于没转。
+张量上还有 `.tolist()` 也能转成 Python 列表，画图不需要。
 
 生成横坐标用：
 

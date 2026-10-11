@@ -11,10 +11,15 @@
 讲义末尾那 4 道自测题是口试，这里查不了，由人工抽查。
 """
 
+import os
 import re
 import subprocess
 import sys
 from pathlib import Path
+
+# 失败信息里可能带学习者的原始输出，控制台编码装不下的字符直接替换，别让报错本身炸掉
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(errors="replace")
 
 REPO = Path(__file__).resolve().parent.parent
 # 默认查学习者的 work/a0，传一个目录参数可以查别的实现（自测用）
@@ -47,7 +52,12 @@ def case(name: str):
 
 
 def run_script(path: Path) -> subprocess.CompletedProcess:
-    """用当前解释器跑一个脚本，返回 CompletedProcess（文本模式）。"""
+    """用当前解释器跑一个脚本，返回 CompletedProcess（文本模式）。
+
+    强制子进程按 UTF-8 输出：默认它会跟着控制台的代码页走（中文 Windows 是 GBK），
+    那样中文在管道里会解不回来。
+    """
+    env = {**os.environ, "PYTHONIOENCODING": "utf-8", "PYTHONUTF8": "1"}
     return subprocess.run(
         [sys.executable, str(path)],
         cwd=str(REPO),
@@ -56,6 +66,7 @@ def run_script(path: Path) -> subprocess.CompletedProcess:
         encoding="utf-8",
         errors="replace",
         timeout=TIMEOUT,
+        env=env,
     )
 
 
@@ -150,6 +161,8 @@ def main() -> int:
                 )
 
     # ---------------- 任务二：sin.py ----------------
+    png_mtime_before: float | None = PNG.stat().st_mtime if PNG.exists() else None
+
     @case("T9 sin.py 存在且能跑完")
     def _t9():
         assert SIN.exists(), f"找不到 {SIN}，先照着 notes/a0-setup.md 第 6 节写出来"
@@ -163,17 +176,29 @@ def main() -> int:
             f"退出码 {proc.returncode}，脚本报错了。stderr:\n{proc.stderr[-1500:]}"
         )
 
-    @case("T10 生成了 work/a0/sin.png")
+    @case("T10 生成了 work/a0/sin.png，且是这次跑出来的")
     def _t10():
-        assert PNG.exists(), f"找不到 {PNG}。savefig 的路径要写 work/a0/sin.png"
+        assert PNG.exists(), (
+            f"找不到 {PNG}。savefig 的路径要写成 work/a0/sin.png（相对仓库根目录），"
+            "写成 out.png 之类会落到别的地方"
+        )
         assert PNG.stat().st_size > 5000, (
             f"图片只有 {PNG.stat().st_size} 字节，太小了，多半是被裁空或没画上东西"
         )
+        # 目录里可能留着上一次跑的图。只有 mtime 变了才说明这次的 savefig 真的写了这个文件
+        if png_mtime_before is not None:
+            assert PNG.stat().st_mtime > png_mtime_before, (
+                f"{PNG.name} 是上一次留下的，这次跑完没有更新——说明 savefig 写的不是这个路径"
+            )
 
     @case("T11 图里真的有一条曲线")
     def _t11():
         from PIL import Image
 
+        if png_mtime_before is not None:
+            assert PNG.stat().st_mtime > png_mtime_before, (
+                "这张图是上一次留下的，不是这次跑出来的，内容检查没有意义（见 T10）"
+            )
         with Image.open(PNG) as im:
             assert im.format == "PNG", f"文件格式是 {im.format}，要存成 PNG"
             w, h = im.size

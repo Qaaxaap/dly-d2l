@@ -8,7 +8,7 @@
 查的是两件事：`hello_tensor.py` 打印出来的东西对不对，`sin.py` 有没有生成一张
 真的画了曲线的 `sin.png`。
 
-讲义末尾那 4 道自测题是口试，这里查不了，由人工抽查。
+讲义末尾那 9 道自测题是口试，这里查不了，由人工抽查。
 """
 
 import os
@@ -133,6 +133,18 @@ def main() -> int:
                     f"实际输出：\n{hello_out}"
                 )
 
+            @case("T5b 打印了张量所在设备 cuda:0")
+            def _t5b():
+                if not cuda_available:
+                    raise AssertionError("CUDA 不可用，第 5 步被跳过，这里没法验证")
+                # 必须匹配 "cuda:0" 这种形式：只搜 "cuda" 会被版本号 2.14.0+cu126
+                # 和 "CUDA可用:True" 那行误命中
+                assert re.search(r"cuda:\d", hello_out), (
+                    "输出里找不到 cuda:0 这样的设备名。第 5 步要求在张量搬到显卡之后打印它所在的设备；"
+                    "注意如果在那之前调过 .cpu() 并接住返回值，设备就变回 cpu 了。"
+                    f"实际输出：\n{hello_out}"
+                )
+
             @case("T6 打印了元素个数 12")
             def _t6():
                 assert 12.0 in numbers_in(hello_out), (
@@ -227,11 +239,11 @@ def main() -> int:
         print(f"\n失败 {len(_failures)} 项：")
         for item in _failures:
             print(f"  - {item}")
-        print("\n讲义末尾那 4 道自测题是口试，等我来问。")
+        print("\n讲义末尾那 9 道自测题是口试，等我来问。")
         return 1
 
     print("T1-T11 全部通过。")
-    print("讲义末尾那 4 道自测题是口试，等我来问。")
+    print("讲义末尾那 9 道自测题是口试，等我来问。")
     return 0
 
 

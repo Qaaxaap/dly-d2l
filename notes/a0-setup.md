@@ -295,8 +295,21 @@ import matplotlib
 matplotlib.use("Agg")
 ```
 
-**必须在 `import matplotlib.pyplot` 之前调用**。因为 pyplot 在导入的那一刻就把后端定下来
-并创建了相关对象，之后再改不生效。
+**惯例是写在所有绘图代码之前，包括 `import matplotlib.pyplot` 那一行之前。**
+但要注意，`use()` 并不是"过了这村没这店"：本机实测（matplotlib 3.11.2），
+把它放在 `import matplotlib.pyplot as plt` 之后调用仍然会切换后端，也不报警告。
+
+那为什么还要求写前面？因为**已经建好的画布是在旧后端下创建的**，切换之后它和新后端的
+关系是未定义的。下面这种顺序就危险：
+
+```python
+import matplotlib.pyplot as plt
+plt.figure()                 # 已经用默认后端（本机是 tkagg）建了画布
+import matplotlib
+matplotlib.use("Agg")        # 现在才切换，前面那张画布怎么办？没定义
+```
+
+写在最前面，这些问题根本不会出现。这也是全网文档统一的建议顺序。
 
 ## 5. 任务一：确认环境活着
 
@@ -462,8 +475,9 @@ git commit -m "a0: 跑通第一个张量脚本"
 3. `torch.arange(12)` 造出来的张量是什么类型？为什么这里要显式写 `dtype=torch.float32`？
 4. `x.to("cuda")` 之后，`x` 本身变了吗？
 5. 为什么 `(g * 2).cpu()` 要加括号？
-6. 画图那行 `matplotlib.use("Agg")` 为什么必须写在 `import matplotlib.pyplot` 之前？
-7. 为什么不能把 torch 张量直接传给 `plt.plot`？
+6. 为什么惯例上把 `matplotlib.use("Agg")` 写在所有绘图代码（包括 `import matplotlib.pyplot`）
+   之前？放在它后面还会生效吗？
+7. 把 torch 张量直接传给 `plt.plot`，什么时候可以、什么时候必须先转换？
 8. `torch.arange` 和 `torch.linspace` 有什么区别？
 9. `just run work/a0/sin.py` 展开成什么命令？
 
@@ -474,11 +488,16 @@ git commit -m "a0: 跑通第一个张量脚本"
    `#include` 是编译期把源文本插进来，两者发生的时机和机制都不同。
 2. 要一个已经存好的值就用属性（不加括号）；要执行一段逻辑拿返回值就调用方法（加括号）。
    拿不准就看打印出来是不是 `<built-in method ...>`。
-3. `torch.arange(12)` 默认 `int64`。浮点运算和梯度要求浮点类型，整数张量送进线性层会报 dtype 不匹配。
+3. `torch.arange(12)` 默认 `int64`，是整数张量。任务要的是 float32，而且后面讲的运算都要求
+   浮点类型，所以显式写 `dtype=torch.float32`。不写不会报错，只是类型不对。
 4. 没变。`.to()` 返回新张量，`x` 还是原来那个在 CPU 上的。
 5. `.cpu()` 作用于 `g * 2` 的结果。不加括号会改变运算顺序。
-6. pyplot 在导入时就把后端定下来并创建相关对象，之后再调 `use()` 不生效。
-7. matplotlib 只认 numpy 数组，torch 张量要先 `.numpy()` 转过去。
+6. 惯例写在最前，避免"先建画布、后切后端"。实测 matplotlib 3.11.2 把它放在
+   `import matplotlib.pyplot` 之后调用仍然会切换后端、也不报警告，所以严格说不是"不生效"；
+   但已经建好的画布是在旧后端下创建的，切换之后它和新后端的关系没有定义。
+7. CPU 上的张量可以直接传，matplotlib 内部会自己转成 numpy。显卡上的张量不行，会报
+   `can't convert cuda:0 device type tensor to numpy`，必须先 `.cpu()`。
+   要显式转就写 `x.cpu().numpy()`，注意 `.numpy()` 返回新数组，单独一行等于没转。
 8. `arange` 按**步长**生成（默认步长 1），`linspace` 按**点的个数**在两端之间均匀取。
 9. 用 `.venv` 里的解释器跑这个文件：`.\.venv\Scripts\python.exe work\a0\sin.py`。
 

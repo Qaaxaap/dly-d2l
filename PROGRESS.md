@@ -6,8 +6,10 @@
 
 - 阶段：**A 阶段（地基）**
 - 已完成：A0
-- 正在学：无
-- 下一步：A1 Python 最小子集
+- 正在学：无（等 A1 材料补齐后可开始）
+- 下一步：A1 Python 最小子集；A1 缺 `READING.md` 与 `oral.md`
+- 作息约束：**工作日只能读原书，讲义/代码/口试只能放周末**；复习也只排周末。
+  见 [notes/learning-rhythm.md](notes/learning-rhythm.md) 第 3、4 节
 
 ## 单元状态
 

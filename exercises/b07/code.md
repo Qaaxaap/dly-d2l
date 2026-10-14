@@ -7,10 +7,39 @@
 **这一章有四个解锁点**：`get_fashion_mnist_labels`、`show_fashion_mnist`（都在纸质书 3.5）、
 `evaluate_accuracy`、`train_ch3`（3.6）。按仓库规则，在书上出现那句话之前要自己写。
 
+**验收有三种类型**，断言里会标出来：
+
+| 类型 | 含义 |
+|---|---|
+| 精确 | 数值必须一致，比如单样本交叉熵 0.41703 |
+| 范围 | 允许因随机划分、随机初始化小幅变化，比如测试精度「0.75 以上」 |
+| 趋势 | 只看方向，比如损失逐轮下降 |
+
+看到"以上""约"这类词就是范围型，不必追求和某个具体数字一模一样。
+
 **T1 到 T5 不许用 `nn.CrossEntropyLoss`、`nn.NLLLoss`、`torch.log_softmax`、`torch.logsumexp`**，
 softmax 与交叉熵都要自己算，数值稳定的平移也要自己写（T6 才用框架封装）。
 
 数据已经在仓库的 `data/` 下（Fashion-MNIST，训练 60000 张、测试 10000 张，28×28 灰度）。
+
+---
+
+## 先看一段：关于迭代器
+
+下面几道题里的 `loader`、`train_iter`、`test_iter` 都是**参数**，由验收脚本传进来
+（类型是 `torch.utils.data.DataLoader`）。你不用实现它们，但要知道它们产出什么：
+
+- 每次迭代给一个 `(X, y)`
+- `X` 形状 `(batch, 1, 28, 28)`，像素值已经缩到 0 到 1
+- `y` 形状 `(batch,)`，元素是 0 到 9 的整数
+- 最后一个批量的样本数可能小于 `batch_size`
+
+模型是 `nn.Linear(784, 10)`，只接受 `(n, 784)`，而 loader 给的是 `(batch, 1, 28, 28)`。
+**拉平要在你的函数里做**——loader 是外部给的，它不做这件事。
+每处 `net(...)` 之前都要先 `X.reshape(X.shape[0], -1)`。
+
+别与 B06 的 `data_iter` 混：那是你自己写的生成器，签名是
+`data_iter(batch_size, features, labels, seed)`；这里的 `loader` 是外部传进来的 `DataLoader`。
 
 ---
 
@@ -68,10 +97,10 @@ def accuracy(logits: torch.Tensor, y: torch.Tensor) -> float:
 ## T3 在数据集上评估
 
 ```python
-def evaluate_accuracy(net, data_iter) -> float:
+def evaluate_accuracy(net, loader) -> float:
     """net 是可调用对象，接受 (n, 784) 返回 (n, 10) 的 logits。
 
-    在整个 data_iter 上算准确率，返回 Python 浮点数。
+    在整个 loader 上算准确率，返回 Python 浮点数。
     评估过程不应建立计算图。
     """
 ```
@@ -83,7 +112,18 @@ def evaluate_accuracy(net, data_iter) -> float:
 
 ## T4 从零实现：训练
 
+这一题要三个零件：T1 的 `cross_entropy`、下面这个 `sgd`、以及参数初始化。
+
 ```python
+def sgd(params: list, lr: float, batch_size: int) -> None:
+    """小批量随机梯度下降，与 B06 的 T4 相同，这一章自己重写一遍。
+
+    对 params 里的每个参数做 p ← p - lr * p.grad / batch_size。
+    要求：就地更新、更新后就地清零该参数的梯度、过程中不建计算图。
+    注意这里的除法不能省：T1 的 cross_entropy 返回的是和，不是平均。
+    """
+
+
 def make_net(num_inputs: int = 784, num_outputs: int = 10, seed: int = 0):
     """返回 (W, b) 两个叶子张量：W 形状 (784, 10) 用均值 0、标准差 0.01 的正态随机数，
     b 形状 (10,) 用全零。都用 seed 保证可复现，都开 requires_grad。"""
@@ -113,7 +153,7 @@ def train_from_scratch(train_iter, test_iter, num_epochs: int = 5,
 ## T5 混淆矩阵
 
 ```python
-def confusion_matrix(net, data_iter, q: int = 10) -> torch.Tensor:
+def confusion_matrix(net, loader, q: int = 10) -> torch.Tensor:
     """返回 (q, q) 的整数张量。
 
     第 i 行第 j 列 = 真实类别是 i 而被预测成 j 的样本数。
@@ -124,8 +164,10 @@ def confusion_matrix(net, data_iter, q: int = 10) -> torch.Tensor:
 | 检查 | 期望 |
 |---|---|
 | 矩阵形状 | `(10, 10)` |
-| 所有元素之和 | 等于 `data_iter` 里的样本总数 |
+| 所有元素之和 | 等于 `loader` 里的样本总数 |
 | 对角线之和 / 总数 | 与 `evaluate_accuracy` 返回的准确率一致（误差 1e-6 内） |
+
+累加时留意一件事：**用张量做下标是取位置，不是逐个位置加一**。`ret[y, ya] += 1` 这种写法不报错但会漏掉重复组合，细节见讲义 7.2 节。
 
 ## T6 简洁实现
 

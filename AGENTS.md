@@ -332,7 +332,7 @@ MXNet 的对照只在一种情况下有价值：**同一个概念两边默认行
 1. 写 `log/` 文件，其中包含"用时对比"一节
 2. 更新 `PROGRESS.md`（状态、掌握度、错题本、复习队列、节奏表）
 3. `git add` + `git commit`，提交信息格式 `log(<单元>): <结果> <一句话>`
-4. `git push origin main`。仓库公开在 <https://github.com/Qaaxaap/d2l-learning>。
+4. `git push origin main`。仓库在 <https://github.com/deliya2011/d2l-learning>（暂为私有）。
    **推送由学习者决定，不要替他推，也不要索要凭据。** 他没要求就只到 commit 为止。
 
 ## 仓库会公开

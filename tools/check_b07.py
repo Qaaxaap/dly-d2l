@@ -119,7 +119,10 @@ def main() -> int:
     @case("T3 随机模型的准确率")
     def _t3():
         _, test_iter = get_iters()
-        W, b = mod.make_net()
+        # 断言自己造一个随机线性模型，不依赖 T4 的 make_net（那是后面才写的）
+        g = torch.Generator().manual_seed(0)
+        W = torch.randn(784, 10, generator=g) * 0.01
+        b = torch.zeros(10)
         acc = mod.evaluate_accuracy(lambda X: X @ W + b, test_iter)
         assert acc < 0.3, (
             f"未训练的模型应当接近随机水平，得到 {acc:.4f}。"
@@ -130,11 +133,34 @@ def main() -> int:
     def _t4():
         train_iter, test_iter = get_iters()
         res = mod.train_from_scratch(train_iter, test_iter, num_epochs=5)
-        for key in ("train_loss", "train_acc", "test_acc"):
+        keys = ("train_loss", "train_acc", "test_acc")
+        for key in keys:
             assert key in res, f"返回的字典缺 {key} 键"
             assert len(res[key]) == 5, f"{key} 应有 5 项，得到 {len(res[key])}"
-        assert res["train_loss"][-1] < res["train_loss"][0], (
-            f"训练损失应逐轮下降，得到 {[round(v, 4) for v in res['train_loss']]}"
+        # 三个键必须是三个不同的列表：写成 a = b = c = [] 时它们指向同一个对象
+        ids = [id(res[k]) for k in keys]
+        assert len(set(ids)) == 3, (
+            "三个键指向了同一个列表。`d['a'] = d['b'] = d['c'] = []` 这种链式赋值"
+            "会让它们共享一个对象，只 append 一个键时另外两个看起来也有数据"
+        )
+        # 准确率的取值范围
+        for key in ("train_acc", "test_acc"):
+            vals = res[key]
+            assert all(0.0 <= v <= 1.0 for v in vals), (
+                f"{key} 里出现了不在 0 到 1 之间的值 {[round(v, 4) for v in vals]}，"
+                "检查是不是把损失填进了准确率"
+            )
+        # 初始损失：随机初始化在 10 类上的交叉熵约 2.3
+        assert res["train_loss"][0] > 1.0, (
+            f"第一轮的损失应当接近 log(10) ≈ 2.3，得到 {res['train_loss'][0]:.4f}。"
+            "偏小说明损失不是逐批算出来的交叉熵"
+        )
+        assert res["train_loss"][-1] < res["train_loss"][0] * 0.8, (
+            f"训练损失应明显下降，得到 {[round(v, 4) for v in res['train_loss']]}。"
+            "只降一点点通常说明参数根本没更新——检查 backward 之后有没有调 sgd"
+        )
+        assert res["train_acc"][-1] > 0.70, (
+            f"训练集准确率应超过 0.70，得到 {res['train_acc'][-1]:.4f}"
         )
         assert res["test_acc"][-1] > 0.75, (
             f"5 轮后测试精度应超过 0.75，得到 {res['test_acc'][-1]:.4f}。"
@@ -145,7 +171,9 @@ def main() -> int:
     @case("T5 混淆矩阵")
     def _t5():
         _, test_iter = get_iters()
-        W, b = mod.make_net()
+        g = torch.Generator().manual_seed(0)
+        W = torch.randn(784, 10, generator=g) * 0.01
+        b = torch.zeros(10)
         net = lambda X: X @ W + b  # noqa: E731
         cm = mod.confusion_matrix(net, test_iter)
         assert tuple(cm.shape) == (10, 10), f"形状应为 (10, 10)，得到 {tuple(cm.shape)}"
@@ -162,8 +190,15 @@ def main() -> int:
     def _t6():
         train_iter, test_iter = get_iters()
         res = mod.train_concise(train_iter, test_iter, num_epochs=5)
-        for key in ("train_loss", "train_acc", "test_acc"):
+        keys = ("train_loss", "train_acc", "test_acc")
+        for key in keys:
             assert key in res, f"返回的字典缺 {key} 键"
+        ids = [id(res[k]) for k in keys]
+        assert len(set(ids)) == 3, "三个键指向了同一个列表，检查赋值写法"
+        for key in ("train_acc", "test_acc"):
+            assert all(0.0 <= v <= 1.0 for v in res[key]), (
+                f"{key} 里出现了不在 0 到 1 之间的值"
+            )
         assert res["test_acc"][-1] > 0.75, (
             f"5 轮后测试精度应超过 0.75，得到 {res['test_acc'][-1]:.4f}。"
             "偏低时先检查有没有在损失前又做了一次 softmax"

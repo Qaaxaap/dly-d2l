@@ -279,6 +279,63 @@ $$\hat y_j = \frac{\exp(o_j - m)}{\sum_k \exp(o_k - m)} .$$
 **`dim` 为什么是 1**：`dim=0` 是批量那一维，`dim=1` 才是类别那一维。
 写错成 `dim=0` 不报错，只是每一列单独归一化，结果全错。这是这一章最容易犯的错。
 
+### 5.2.1 不经过 softmax 直接算 log 概率
+
+上面说"`log_softmax` 比先 softmax 再取 log 精度好"。它内部靠的是一个恒等式：
+
+$$\log \hat y_j = \log \frac{\exp(o_j)}{\sum_k \exp(o_k)} = o_j - \log \sum_k \exp(o_k) .$$
+
+右边那一项叫 **log-sum-exp**，记作 $\operatorname{logsumexp}(\mathbf{o})$。
+这个变形的好处是**不必先算出概率**：
+
+- 左式要先得到 $\hat y_j$（可能下溢成 0），再取 log（变成 $-\infty$）
+- 右式只做减法，$o_j$ 与 $\log\sum_k\exp(o_k)$ 都是有限值
+
+**logsumexp 自己也要稳定地算**，手法与 softmax 一样是平移：
+
+$$\operatorname{logsumexp}(\mathbf{o}) = m + \log \sum_k \exp(o_k - m),\qquad m = \max_k o_k .$$
+
+减掉 $m$ 之后，指数里的数最大是 0，不会上溢；求和的结果至少为 1
+（因为总有一项 $o_k - m = 0$），取 log 也不会掉到 $-\infty$。
+
+**串起来，自己实现交叉熵是三步**：
+
+1. 按类别维取最大值 $m$
+2. 算 $\operatorname{logsumexp} = m + \log\sum_k\exp(o_k - m)$
+3. 用 $o_j - \operatorname{logsumexp}$ 得到每个类别的 log 概率，挑出正确类别那一项，取负
+
+第 3 步之后要不要取平均，取决于约定：本课程的约定是返回**和**，除法留给 `sgd`
+（见 6.1 节的说明）。
+
+对照一下这两个封装各做了哪几步：`torch.log_softmax(x, dim)` 做的就是上面第 1 到 3 步的
+前半段；`nn.CrossEntropyLoss` 在此之上再挑正确类别、取负、按 `reduction` 合并。
+题目禁止调用它们，是因为这三步就是这一章要练的东西。
+
+### 5.2.2 用 `clamp` 绕过下溢是错的
+
+一个自然的想法是：既然 `log(0)` 会变 `-inf`，那就给概率设个下限，
+写成 `torch.log(p.clamp_min(1e-12))`。**不要这么做**，它会引入偏差。
+
+实测（`logits = [0, -30]`，正确类别是索引 1）：
+
+| 做法 | 结果 |
+|---|---|
+| softmax 在正确类别上的概率 | `9.36e-14` |
+| 朴素写法加 `clamp_min(1e-12)` | `27.631` |
+| 用 logsumexp 的稳定式 | `30.0` |
+| PyTorch 的 `CrossEntropyLoss` | `30.0` |
+
+截断把概率从 `9.36e-14` 抬到 `1e-12`，损失跟着从 30 掉到 27.63，差 2.37。
+它让程序不崩，但算出来的不是交叉熵。
+
+**正确做法是绕开这一步**：不计算 softmax，直接算 log 概率
+
+$$\log \hat y_j = o_j - \operatorname{logsumexp}(\mathbf{o}) .$$
+
+这个式子里没有"先得到一个接近 0 的概率再取 log"这一步，所以既不上溢也不下溢。
+`logsumexp` 本身也要数值稳定地实现（先减去最大值再取指数），题目里禁止用
+`torch.logsumexp` 就是要求自己写这一层。
+
 ### 5.3 精度
 
 损失数值不直观，看预测对了几成更清楚：
@@ -416,6 +473,26 @@ nn.NLLLoss()(nn.LogSoftmax(dim=1)(logits), t)                 # 0.41703
 
 这一章的题目会要求算混淆矩阵，`torch.zeros((10,10))` 加索引累加即可。
 
+### 7.2 用张量索引累加是个陷阱
+
+写混淆矩阵时最容易写出这一行：
+
+```python
+ret[y, ya] += 1        # y 是真实类别，ya 是预测类别，都是整批样本的下标
+```
+
+它不报错，但结果偏小：**一批里重复出现的 `(i,j)` 组合只会被算一次**。
+这种写法先把下标去重，再对去重后的位置各加一，所以元素之和会远小于样本数。
+
+**两种正确写法**：
+
+- **逐样本**：`for t, p in zip(y.tolist(), ya.tolist()): ret[t, p] += 1`。
+  先转成 Python 列表，每次只索引一个位置，不存在去重问题。
+- **向量化**：把二维下标编码成一维 `y * q + ya`，再用 `torch.bincount` 或
+  `scatter_add_` 一次累加。`bincount` 本身就是计数，数据量大时快得多。
+
+本课程的断言会查"元素之和等于样本数"，所以这个错一定会被抓到。
+
 ## 8 实现会踩的坑
 
 | 坑 | 症状 | 原因 |
@@ -429,6 +506,7 @@ nn.NLLLoss()(nn.LogSoftmax(dim=1)(logits), t)                 # 0.41703
 | 用测试集调超参数 | 测试精度虚高 | 测试集只能用来看最终结果（4 节） |
 | 学习率沿用 B06 的 0.03 | 收敛慢 | 批量从 10 变成 256，学习率要跟着调（5.4） |
 | 电子版里 `y_hat` 一会儿是概率一会儿是 logits | 损失不降 | v2 的 3.6 让 `net` 返回概率、3.7 让 `net` 返回 logits，同名不同义，读代码要看它传给谁 |
+| 用张量索引累加（`ret[y, ya] += 1`） | 不报错，元素和远小于样本数 | 张量索引返回副本，且重复下标只算一次（7.2） |
 | 标签是 float32 | `RuntimeError: expected target dtype to be Long or Byte` | 整数标签要 int64；形状为 $(n,q)$ 的浮点标签会被当成软标签，静默走另一条路径（6.3） |
 
 ## 命令速查
